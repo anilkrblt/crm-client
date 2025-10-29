@@ -1,94 +1,42 @@
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation" // Yönlendirme için hâlâ gerekli olabilir
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, LogOut, User, Clock, AlertCircle, Users } from "lucide-react"
+import { Search, LogOut, User, Clock, AlertCircle, Users, Building2 } from "lucide-react" 
 import Link from "next/link"
 
-// 1. AuthContext ve Servisleri Import Et
 import { useAuth } from "@/context/AuthContext"
 import * as ticketService from "@/services/ticketService"
+import { AgentDto, CustomerDto, TicketDto, TicketPriority, TicketStatus } from "@/types/crm-types"
 
-// 2. Backend DTO'ları ile eşleşen TİPLERİ tanımla
-// (Bu tipler /src/types/crm-types.ts gibi merkezi bir dosyada olmalı)
-type TicketStatus = "OPEN" | "IN_PROGRESS" | "ON_HOLD" | "CLOSED"
-type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT"
-
-// Backend DTO'larına göre tipler
-interface CustomerDto {
-  id: number
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
-  createdAt: string
-}
-
-interface AgentDto {
-  id: number
-  firstName: string
-  lastName: string
-  email: string
-  departmentName: string
-}
-
-interface DepartmentDto {
-  id: number
-  name: string
-}
-
-interface TicketDto {
-  id: number
-  subject: string // 'title' yerine 'subject'
-  description: string
-  status: TicketStatus
-  priority: TicketPriority
-  customer: CustomerDto // 'customerId' ve 'customerName' yerine nesne
-  department: DepartmentDto
-  assignedAgent: AgentDto | null // 'assignedAgentId' ve 'assignedAgentName' yerine nesne
-  createdAt: string
-  updatedAt: string
-}
-// --- Tip Tanımları Bitti ---
 
 export default function DashboardPage() {
-  const router = useRouter()
-  // 3. AuthContext'ten gerçek kullanıcı, logout ve yüklenme durumunu al
   const { user, logout, isLoading: isAuthLoading } = useAuth()
   
-  // 4. State'leri mock data yerine boş dizi ile başlat
   const [tickets, setTickets] = useState<TicketDto[]>([])
-  const [isDataLoading, setIsDataLoading] = useState(true) // Veri yükleme
-  const [error, setError] = useState<string | null>(null) // Hata
-  
-  // Filtre state'leri (aynı kalır)
+  const [isDataLoading, setIsDataLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [priorityFilter, setPriorityFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
 
-  // 5. Veri Çekme (Data Fetching)
-  // Bu useEffect, arama/filtreleme parametreleri her değiştiğinde API'yi çağırır
   useEffect(() => {
-    // Sadece kimlik doğrulaması tamamlandıysa ve kullanıcı varsa veri çek
     if (!isAuthLoading && user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsDataLoading(true)
       
-      // Filtreleri 'params' objesi olarak hazırla
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const params: any = {}
-      if (searchQuery) params.name = searchQuery; // Veya backend'deki adı neyse
+      
+      if (searchQuery) params.name = searchQuery;
       if (statusFilter !== "all") params.status = statusFilter;
       if (priorityFilter !== "all") params.priority = priorityFilter;
       
-      // Backend'deki birleşik filtreleme endpoint'ini çağır
-      // (Şimdilik sadece 'findTickets' olduğunu varsayıyoruz)
       ticketService.findTickets(params)
         .then(response => {
           setTickets(response.data)
@@ -101,18 +49,13 @@ export default function DashboardPage() {
           setIsDataLoading(false)
         })
     }
-  }, [isAuthLoading, user, searchQuery, statusFilter, priorityFilter]) // Filtreler değiştiğinde tekrar çek
+  }, [isAuthLoading, user, searchQuery, statusFilter, priorityFilter])
 
-  // 6. Logout fonksiyonunu AuthContext'e bağla
   const handleLogout = () => {
-    logout() // Context'teki logout fonksiyonunu çağırır
+    logout()
   }
 
-  // 7. Client-side filtreleme kaldırıldı (Server-side yapılıyor varsayımı)
-  // const filteredTickets = tickets.filter(...) // <-- KALDIRILDI
-
-  // 8. Sıralama (Sort) - Bu hâlâ client-side yapılabilir
-  const sortedTickets = [...tickets] // Yeni bir kopya oluştur
+  const sortedTickets = [...tickets] 
     .sort((a, b) => {
       switch (sortBy) {
         case "newest":
@@ -127,7 +70,6 @@ export default function DashboardPage() {
       }
     })
 
-  // Renk ve Tarih fonksiyonları (Enum isimlerini kullanacak şekilde güncellendi)
   const getStatusColor = (status: TicketStatus) => {
     switch (status) {
       case "OPEN": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
@@ -149,7 +91,6 @@ export default function DashboardPage() {
   }
 
   const formatDate = (dateString: string) => {
-    // ... (formatDate fonksiyonu aynı kalabilir)
     const date = new Date(dateString)
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
@@ -162,28 +103,27 @@ export default function DashboardPage() {
     return date.toLocaleDateString()
   }
 
-  // 9. İstatistikler (Backend'den çekilen tüm biletlere göre hesaplanır)
   const stats = {
     open: tickets.filter((t) => t.status === "OPEN").length,
     inProgress: tickets.filter((t) => t.status === "IN_PROGRESS").length,
     resolved: tickets.filter((t) => t.status === "RESOLVED").length,
   }
 
-  // 10. Ana Yükleme Durumu (AuthContext'ten)
-  // Bu, (dashboard)/layout.tsx tarafından zaten ele alınıyor,
-  // bu yüzden bu sayfada tekrar göstermeye gerek yok (layout halleder).
-  // if (isAuthLoading || !user) { ... } // <-- KALDIRILDI
-
   return (
-    <div className="min-h-screen bg-muted/30">
-      {/* Header (Kullanıcı bilgisi 'user' context'inden alındı) */}
+    <div className="bg-muted/30">
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            {/* ... (Başlık kısmı aynı) ... */}
-            <div className="flex items-center gap-3">...</div>
-
-            {user && ( // Kullanıcı yüklendiyse göster
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Support Dashboard</h1>
+                <p className="text-sm text-muted-foreground">Manage customer tickets</p>
+              </div>
+            </div>
+            {user && (
               <div className="flex items-center gap-4">
                 <Link href="/customers">
                   <Button variant="ghost" size="sm">
@@ -191,7 +131,6 @@ export default function DashboardPage() {
                     Customers
                   </Button>
                 </Link>
-                {/* ADMIN ise Ajanlar ve Departmanlar butonlarını göster */}
                 {user.roles.includes("ADMIN") && (
                   <>
                     <Link href="/agents">
@@ -225,23 +164,52 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats (Aynı kalır, 'stats' objesi güncellendi) */}
-        {/* ... (stats kartları) ... */}
-
-
-        {/* Filters (Filtre seçenekleri Enum'lara göre güncellendi) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+           <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Open Tickets</p>
+                <p className="text-2xl font-bold text-foreground">{stats.open}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">In Progress</p>
+                <p className="text-2xl font-bold text-foreground">{stats.inProgress}</p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-300" />
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Resolved</p>
+                <p className="text-2xl font-bold text-foreground">{stats.resolved}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-green-600 dark:text-green-300" />
+              </div>
+            </div>
+          </Card>
+        </div>
         <Card className="p-4 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="ID, konu veya müşteri adına göre ara..." // Güncellendi
+                placeholder="ID, konu veya müşteri adına göre ara..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
             </div>
-            {/* ENUM'lar büyük harf olacak şekilde güncellendi */}
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full md:w-[180px]">
                 <SelectValue placeholder="Status" />
@@ -266,11 +234,19 @@ export default function DashboardPage() {
                 <SelectItem value="LOW">Low</SelectItem>
               </SelectContent>
             </Select>
-            {/* ... (Sıralama aynı kalır) ... */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </Card>
 
-        {/* Yüklenme ve Hata Durumları */}
         {isDataLoading && (
            <Card className="p-8 text-center">
              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -283,7 +259,6 @@ export default function DashboardPage() {
            </Card>
         )}
 
-        {/* Ticket List (DTO'ya göre güncellendi) */}
         <div className="space-y-3">
           {!isDataLoading && !error && sortedTickets.length === 0 ? (
             <Card className="p-8 text-center">
@@ -302,7 +277,7 @@ export default function DashboardPage() {
                       </div>
                       <h3 className="font-semibold text-foreground mb-1 text-balance">{ticket.subject}</h3> 
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{ticket.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <User className="w-3 h-3" />
                           {ticket.customer.firstName} {ticket.customer.lastName}
@@ -311,12 +286,12 @@ export default function DashboardPage() {
                           <Clock className="w-3 h-3" />
                           {formatDate(ticket.createdAt)}
                         </span>
-                        {ticket.assignedAgent ? ( // Atanmış ajan varsa göster
+                        {ticket.assignedAgent ? ( 
                           <span className="flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" />
                             Assigned to {ticket.assignedAgent.firstName} {ticket.assignedAgent.lastName}
                           </span>
-                        ) : ( // Ajan atanmamışsa departmanı göster
+                        ) : (
                            <span className="flex items-center gap-1">
                             <Users className="w-3 h-3" />
                             Dept: {ticket.department.name}
